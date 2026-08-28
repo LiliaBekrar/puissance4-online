@@ -84,7 +84,7 @@ describe('gameMachine', () => {
     actor.send({
       type: 'join',
       playerId: 'player-2',
-      name: 'Marc',
+      name: 'Axel',
     })
 
     actor.send({
@@ -160,7 +160,7 @@ describe('gameMachine', () => {
     actor.send({
       type: 'join',
       playerId: 'player-2',
-      name: 'Marc',
+      name: 'Axel',
     })
 
     actor.send({
@@ -195,7 +195,7 @@ describe('gameMachine', () => {
     actor.send({
       type: 'join',
       playerId: 'player-2',
-      name: 'Marc',
+      name: 'Axel',
     })
 
     actor.send({
@@ -235,7 +235,7 @@ describe('gameMachine', () => {
     actor.send({
       type: 'join',
       playerId: 'player-2',
-      name: 'Marc',
+      name: 'Axel',
     })
 
     actor.send({
@@ -275,7 +275,7 @@ describe('gameMachine', () => {
     actor.send({
       type: 'join',
       playerId: 'player-2',
-      name: 'Marc',
+      name: 'Axel',
     })
 
     actor.send({
@@ -325,7 +325,7 @@ describe('gameMachine', () => {
     actor.send({
       type: 'join',
       playerId: 'player-2',
-      name: 'Marc',
+      name: 'Axel',
     })
 
     actor.send({
@@ -350,4 +350,146 @@ describe('gameMachine', () => {
     expect(actor.getSnapshot().context.currentPlayerId).toBe('player-1')
   })
 
+  // TEST 14 : Vérifie qu'un pion tombe dans la case libre la plus basse de la colonne.
+  it('drops a token at the bottom of an empty column', () => {
+    // Arrange : on prépare une partie démarrée où Jaune possède le premier tour.
+    const actor = createActor(gameMachine)
+    actor.start()
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-1',
+      name: 'Lilia',
+    })
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-2',
+      name: 'Axel',
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-1',
+      color: PlayerColor.YELLOW,
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-2',
+      color: PlayerColor.RED,
+    })
+
+    actor.send({
+      type: 'start',
+      playerId: 'player-1',
+    })
+
+    // Act : le joueur jaune joue dans la première colonne.
+    actor.send({
+      type: 'dropToken',
+      playerId: 'player-1',
+      column: 0,
+    })
+
+    // Assert : le pion jaune se trouve dans la dernière ligne de la colonne.
+    expect(actor.getSnapshot().context.grid[5]?.[0]).toBe(
+      PlayerColor.YELLOW,
+    )
+  })
+
+  // TEST 15 : Vérifie que le tour passe à l'autre joueur après un coup valide.
+  it('switches the current player after a valid move', () => {
+    // Arrange : on prépare une partie où le joueur jaune doit jouer en premier.
+    const actor = createActor(gameMachine)
+    actor.start()
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-1',
+      name: 'Lilia',
+    })
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-2',
+      name: 'Axel',
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-1',
+      color: PlayerColor.YELLOW,
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-2',
+      color: PlayerColor.RED,
+    })
+
+    actor.send({
+      type: 'start',
+      playerId: 'player-1',
+    })
+
+    // Act : Jaune joue son pion.
+    actor.send({
+      type: 'dropToken',
+      playerId: 'player-1',
+      column: 0,
+    })
+
+    // Assert : c'est désormais au joueur rouge de jouer.
+    expect(actor.getSnapshot().context.currentPlayerId).toBe('player-2')
+  })
+
+  // TEST 16 : Vérifie qu'un joueur ne peut pas déposer de pion pendant le tour adverse.
+  it('does not allow a player to play out of turn', () => {
+    // Arrange : Jaune possède le premier tour de la partie.
+    const actor = createActor(gameMachine)
+    actor.start()
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-1',
+      name: 'Lilia',
+    })
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-2',
+      name: 'Axel',
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-1',
+      color: PlayerColor.YELLOW,
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-2',
+      color: PlayerColor.RED,
+    })
+
+    actor.send({
+      type: 'start',
+      playerId: 'player-1',
+    })
+
+    // Act : Rouge tente de jouer alors que c'est encore le tour de Jaune.
+    actor.send({
+      type: 'dropToken',
+      playerId: 'player-2',
+      column: 0,
+    })
+
+    // Assert : aucun pion ne doit avoir été ajouté à la grille.
+    expect(actor.getSnapshot().context.grid[5]?.[0]).toBeNull()
+
+    // Assert : le tour appartient toujours au joueur jaune.
+    expect(actor.getSnapshot().context.currentPlayerId).toBe('player-1')
+  })
 })
