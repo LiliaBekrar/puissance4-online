@@ -21,4 +21,5 @@ export type GameContext = {
   creatorId?: PlayerId
   players: Player[]
   grid: Grid
+  currentPlayerId?: PlayerId
 }

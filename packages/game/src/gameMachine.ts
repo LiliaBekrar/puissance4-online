@@ -115,6 +115,18 @@ export const gameMachine = setup({
         })
       },
     }),
+
+    // Le joueur jaune commence toujours la partie.
+    setCurrentPlayer: assign({
+      currentPlayerId: ({ context }) => {
+        const yellowPlayer = context.players.find(
+          (player) => player.color === PlayerColor.YELLOW,
+        )
+
+        return yellowPlayer?.id
+      },
+    }),
+
   },
 }).createMachine({
   id: 'game',
@@ -141,6 +153,7 @@ export const gameMachine = setup({
 
         start: {
           guard: 'canStart',
+          actions: 'setCurrentPlayer',
           target: 'PLAY',
         },
       },

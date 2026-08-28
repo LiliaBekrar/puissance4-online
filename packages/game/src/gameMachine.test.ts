@@ -310,4 +310,44 @@ describe('gameMachine', () => {
     expect(grid.flat().every((cell) => cell === null)).toBe(true)
   })
 
+  // TEST 13 : Vérifie que le joueur jaune obtient le premier tour.
+  it('sets the yellow player as the current player when the game starts', () => {
+    // Arrange : deux joueurs rejoignent la partie et choisissent des couleurs différentes.
+    const actor = createActor(gameMachine)
+    actor.start()
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-1',
+      name: 'Lilia',
+    })
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-2',
+      name: 'Marc',
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-1',
+      color: PlayerColor.YELLOW,
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-2',
+      color: PlayerColor.RED,
+    })
+
+    // Act : le créateur démarre la partie.
+    actor.send({
+      type: 'start',
+      playerId: 'player-1',
+    })
+
+    // Assert : le joueur jaune devient le joueur autorisé à jouer.
+    expect(actor.getSnapshot().context.currentPlayerId).toBe('player-1')
+  })
+
 })
