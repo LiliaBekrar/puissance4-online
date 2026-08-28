@@ -12,5 +12,6 @@ export type Player = {
 }
 
 export type GameContext = {
+  creatorId?: PlayerId
   players: Player[]
 }
