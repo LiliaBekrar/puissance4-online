@@ -1,102 +1,78 @@
 import { assign, setup } from 'xstate'
-
+import { PlayerColor } from './types'
 import type { GameContext, PlayerId } from './types'
 
-/**
- * Liste de tous les événements que notre jeu peut recevoir.
- *
- * Chaque événement possède un `type` qui indique ce qui vient de se passer.
- * Certains événements transportent aussi des informations supplémentaires.
- */
+// Liste de tous les événements que la machine du jeu peut recevoir.
 type GameEvent =
   | { type: 'join'; playerId: PlayerId; name: string }
+  | { type: 'chooseColor'; playerId: PlayerId; color: PlayerColor }
   | { type: 'start' }
   | { type: 'win' }
   | { type: 'draw' }
   | { type: 'restart' }
 
+// `setup` permet de déclarer les types, guards et actions utilisés par la machine.
 export const gameMachine = setup({
-  /**
-   * On indique à XState la forme des données utilisées par la machine.
-   *
-   * - `context` contient les données persistantes de la partie.
-   * - `events` décrit toutes les actions que la machine peut recevoir.
-   */
+  // On indique à XState la forme du contexte et des événements.
   types: {
     context: {} as GameContext,
     events: {} as GameEvent,
   },
 
-  /**
-   * Les guards sont des conditions qui permettent ou refusent une action.
-   *
-   * Elles ne modifient pas la partie.
-   * Elles répondent simplement par `true` ou `false`.
-   */
+  // Les guards décident si une action ou une transition est autorisée.
   guards: {
+    // Vérifie qu'un joueur peut rejoindre le lobby.
     canJoin: ({ context, event }) => {
-      /**
-       * Cette guard ne concerne que l'événement `join`.
-       *
-       * Si elle était appelée avec un autre événement,
-       * on refuse immédiatement l'action.
-       */
+      // Cette guard ne doit accepter que les événements `join`.
       if (event.type !== 'join') {
         return false
       }
 
-      /**
-       * On vérifie si un joueur ayant le même identifiant
-       * est déjà présent dans la partie.
-       *
-       * `.some()` retourne `true` dès qu'il trouve
-       * au moins un joueur correspondant.
-       */
+      // Cherche si ce joueur est déjà présent dans la partie.
       const playerAlreadyJoined = context.players.some(
         (player) => player.id === event.playerId,
       )
 
-      /**
-       * Un joueur peut rejoindre uniquement si :
-       *
-       * 1. il y a moins de deux joueurs dans la partie ;
-       * 2. son identifiant n'est pas déjà présent.
-       *
-       * `&&` signifie que les deux conditions doivent être vraies.
-       * `!playerAlreadyJoined` signifie "le joueur n'est pas déjà présent".
-       */
+      // Autorise l'entrée uniquement s'il reste une place et que le joueur n'est pas déjà présent.
       return context.players.length < 2 && !playerAlreadyJoined
+    },
+
+    // Vérifie qu'un joueur peut choisir la couleur demandée.
+    canChooseColor: ({ context, event }) => {
+      // Cette guard ne doit accepter que les événements `chooseColor`.
+      if (event.type !== 'chooseColor') {
+        return false
+      }
+
+      // Vérifie que le joueur a bien rejoint la partie avant de choisir une couleur.
+      const playerExists = context.players.some(
+        (player) => player.id === event.playerId,
+      )
+
+      // Vérifie si la couleur demandée appartient déjà à un autre joueur.
+      const colorAlreadyTaken = context.players.some(
+        (player) =>
+          player.id !== event.playerId &&
+          player.color === event.color,
+      )
+
+      // Autorise le choix uniquement si le joueur existe et que la couleur est disponible.
+      return playerExists && !colorAlreadyTaken
     },
   },
 
-  /**
-   * Les actions modifient les données de la partie.
-   */
+  // Les actions modifient les données contenues dans le contexte de la machine.
   actions: {
+    // Ajoute un nouveau joueur à la liste des joueurs.
     joinPlayer: assign({
-      /**
-       * `assign()` permet à XState de mettre à jour le contexte.
-       *
-       * Ici, nous recalculons la liste des joueurs lorsqu'un joueur rejoint.
-       */
+      // Calcule une nouvelle valeur pour `players`.
       players: ({ context, event }) => {
-        /**
-         * L'action ne doit modifier les joueurs que pour un événement `join`.
-         *
-         * Si elle reçoit un autre événement, on retourne la liste actuelle
-         * sans effectuer de modification.
-         */
+        // Si l'événement n'est pas `join`, on conserve la liste actuelle.
         if (event.type !== 'join') {
           return context.players
         }
 
-        /**
-         * On crée un nouveau tableau plutôt que de modifier directement
-         * `context.players`.
-         *
-         * `...context.players` copie tous les joueurs déjà présents,
-         * puis on ajoute le nouveau joueur à la fin.
-         */
+        // Crée un nouveau tableau contenant les anciens joueurs et le nouveau joueur.
         return [
           ...context.players,
           {
@@ -106,102 +82,107 @@ export const gameMachine = setup({
         ]
       },
     }),
+
+    // Enregistre la couleur choisie par un joueur.
+    choosePlayerColor: assign({
+      // Calcule une nouvelle liste de joueurs avec la couleur mise à jour.
+      players: ({ context, event }) => {
+        // Si l'événement n'est pas `chooseColor`, on conserve la liste actuelle.
+        if (event.type !== 'chooseColor') {
+          return context.players
+        }
+
+        // `map` construit un nouveau tableau en parcourant tous les joueurs.
+        return context.players.map((player) => {
+          // Les joueurs qui ne sont pas concernés restent inchangés.
+          if (player.id !== event.playerId) {
+            return player
+          }
+
+          // Le joueur concerné est copié puis reçoit la couleur choisie.
+          return {
+            ...player,
+            color: event.color,
+          }
+        })
+      },
+    }),
   },
 }).createMachine({
-  /**
-   * Identifiant interne de cette définition de machine.
-   *
-   * Ce n'est pas l'identifiant d'une partie en ligne.
-   */
+  // Identifiant interne de la définition XState, différent du futur gameId réseau.
   id: 'game',
 
-  /**
-   * Données présentes lorsqu'une nouvelle partie est créée.
-   *
-   * Au départ, personne n'a encore rejoint le lobby.
-   */
+  // Une nouvelle partie démarre sans aucun joueur.
   context: {
     players: [],
   },
 
-  /**
-   * Une nouvelle partie commence toujours dans le lobby.
-   */
+  // Une nouvelle partie commence toujours dans le lobby.
   initial: 'LOBBY',
 
-  /**
-   * Les différents états possibles du jeu.
-   *
-   * LOBBY   : attente des joueurs
-   * PLAY    : partie en cours
-   * VICTORY : un joueur a gagné
-   * DRAW    : égalité
-   */
+  // Déclaration des différentes phases possibles de la partie.
   states: {
+    // Le lobby permet aux joueurs de rejoindre et de choisir leur couleur.
     LOBBY: {
+      // `on` contient les événements acceptés lorsque la machine est dans LOBBY.
       on: {
-        /**
-         * Lorsqu'un joueur essaie de rejoindre :
-         *
-         * 1. `canJoin` vérifie si cela est autorisé ;
-         * 2. si oui, `joinPlayer` l'ajoute au contexte.
-         *
-         * Il n'y a pas de `target` car rejoindre le lobby
-         * ne change pas l'état de la partie : on reste dans LOBBY.
-         */
+        // Un joueur tente de rejoindre la partie.
         join: {
+          // Vérifie d'abord que le joueur a le droit de rejoindre.
           guard: 'canJoin',
+
+          // Ajoute le joueur uniquement si la guard retourne `true`.
           actions: 'joinPlayer',
         },
 
-        /**
-         * Lorsque la partie démarre,
-         * on quitte le lobby pour entrer dans la phase de jeu.
-         */
+        // Un joueur tente de choisir une couleur.
+        chooseColor: {
+          // Vérifie que le joueur existe et que la couleur est disponible.
+          guard: 'canChooseColor',
+
+          // Enregistre la couleur uniquement si la guard retourne `true`.
+          actions: 'choosePlayerColor',
+        },
+
+        // Le démarrage fait passer la partie du lobby à la phase de jeu.
         start: {
           target: 'PLAY',
         },
       },
     },
 
+    // PLAY représente une partie actuellement en cours.
     PLAY: {
+      // Événements acceptés pendant la partie.
       on: {
-        /**
-         * Une victoire fait passer la partie
-         * de PLAY à VICTORY.
-         */
+        // Une victoire fait passer la machine dans l'état VICTORY.
         win: {
           target: 'VICTORY',
         },
 
-        /**
-         * Si la grille est pleine sans gagnant,
-         * la partie passe dans l'état DRAW.
-         */
+        // Une égalité fait passer la machine dans l'état DRAW.
         draw: {
           target: 'DRAW',
         },
       },
     },
 
+    // VICTORY représente une partie terminée avec un gagnant.
     VICTORY: {
+      // Événements disponibles après une victoire.
       on: {
-        /**
-         * Après une victoire, `restart`
-         * permet de revenir dans le lobby.
-         */
+        // Recommencer ramène pour l'instant la machine dans le lobby.
         restart: {
           target: 'LOBBY',
         },
       },
     },
 
+    // DRAW représente une partie terminée sans gagnant.
     DRAW: {
+      // Événements disponibles après une égalité.
       on: {
-        /**
-         * Après une égalité, `restart`
-         * permet également de revenir dans le lobby.
-         */
+        // Recommencer ramène également la machine dans le lobby.
         restart: {
           target: 'LOBBY',
         },
