@@ -11,6 +11,16 @@ type GameEvent =
   | { type: 'draw' }
   | { type: 'restart' }
 
+// Dimension de la grille
+const GRID_ROWS = 6
+const GRID_COLUMNS = 7
+
+// Crée une nouvelle grille 6 × 7 entièrement vide.
+const createEmptyGrid = () =>
+  Array.from({ length: GRID_ROWS }, () =>
+    Array.from({ length: GRID_COLUMNS }, () => null),
+  )
+
 export const gameMachine = setup({
   types: {
     context: {} as GameContext,
@@ -111,6 +121,7 @@ export const gameMachine = setup({
 
   context: {
     players: [],
+    grid: createEmptyGrid(),
   },
 
   initial: 'LOBBY',

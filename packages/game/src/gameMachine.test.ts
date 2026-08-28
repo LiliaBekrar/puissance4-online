@@ -293,4 +293,21 @@ describe('gameMachine', () => {
     // Assert : la machine reste dans le lobby.
     expect(actor.getSnapshot().value).toBe('LOBBY')
   })
+
+  //TEST 12 : Vérifie qu'une nouvelle partie possède une grille vide de 6 lignes sur 7 colonnes.
+  it('starts with an empty 6 by 7 grid', () => {
+    // Arrange : création et démarrage d'une nouvelle partie.
+    const actor = createActor(gameMachine)
+
+    // Act : démarrage de la machine.
+    actor.start()
+
+    const grid = actor.getSnapshot().context.grid
+
+    // Assert : la grille est bien vide et de la bonne dimension.
+    expect(grid).toHaveLength(6)
+    expect(grid.every((row) => row.length === 7)).toBe(true)
+    expect(grid.flat().every((cell) => cell === null)).toBe(true)
+  })
+
 })
