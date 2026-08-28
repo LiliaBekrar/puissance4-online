@@ -492,4 +492,132 @@ describe('gameMachine', () => {
     // Assert : le tour appartient toujours au joueur jaune.
     expect(actor.getSnapshot().context.currentPlayerId).toBe('player-1')
   })
+
+  // TEST 17 : Vérifie que plusieurs pions joués dans la même colonne s'empilent du bas vers le haut.
+  it('stacks tokens in the same column', () => {
+    // Arrange : on prépare une partie commencée avec Jaune en premier et Rouge en second.
+    const actor = createActor(gameMachine)
+    actor.start()
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-1',
+      name: 'Lilia',
+    })
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-2',
+      name: 'Axel',
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-1',
+      color: PlayerColor.YELLOW,
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-2',
+      color: PlayerColor.RED,
+    })
+
+    actor.send({
+      type: 'start',
+      playerId: 'player-1',
+    })
+
+    // Act : Jaune puis Rouge jouent successivement dans la même colonne.
+    actor.send({
+      type: 'dropToken',
+      playerId: 'player-1',
+      column: 0,
+    })
+
+    actor.send({
+      type: 'dropToken',
+      playerId: 'player-2',
+      column: 0,
+    })
+
+    // Assert : Jaune reste en bas et Rouge est placé juste au-dessus.
+    expect(actor.getSnapshot().context.grid[5]?.[0]).toBe(
+      PlayerColor.YELLOW,
+    )
+
+    expect(actor.getSnapshot().context.grid[4]?.[0]).toBe(
+      PlayerColor.RED,
+    )
+  })
+
+  // TEST 18 : Vérifie qu'un joueur ne peut pas ajouter un pion dans une colonne déjà pleine.
+  it('does not allow a token to be dropped into a full column', () => {
+    // Arrange : on prépare une partie commencée avec deux joueurs.
+    const actor = createActor(gameMachine)
+    actor.start()
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-1',
+      name: 'Lilia',
+    })
+
+    actor.send({
+      type: 'join',
+      playerId: 'player-2',
+      name: 'Axel',
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-1',
+      color: PlayerColor.YELLOW,
+    })
+
+    actor.send({
+      type: 'chooseColor',
+      playerId: 'player-2',
+      color: PlayerColor.RED,
+    })
+
+    actor.send({
+      type: 'start',
+      playerId: 'player-1',
+    })
+
+    // Arrange : on remplit les 6 cases de la première colonne en alternant les joueurs.
+    for (let move = 0; move < 6; move++) {
+      const playerId = move % 2 === 0 ? 'player-1' : 'player-2'
+
+      actor.send({
+        type: 'dropToken',
+        playerId,
+        column: 0,
+      })
+    }
+
+    // On mémorise le joueur courant avant la tentative invalide.
+    const currentPlayerBeforeInvalidMove =
+      actor.getSnapshot().context.currentPlayerId
+
+    // Act : le joueur courant tente de jouer une septième fois dans la colonne pleine.
+    actor.send({
+      type: 'dropToken',
+      playerId: currentPlayerBeforeInvalidMove!,
+      column: 0,
+    })
+
+    const snapshot = actor.getSnapshot()
+
+    // Assert : la colonne contient toujours exactement 6 pions.
+    expect(
+      snapshot.context.grid.filter((row) => row[0] !== null),
+    ).toHaveLength(6)
+
+    // Assert : un coup refusé ne doit pas faire passer le tour à l'autre joueur.
+    expect(snapshot.context.currentPlayerId).toBe(
+      currentPlayerBeforeInvalidMove,
+    )
+})
 })
